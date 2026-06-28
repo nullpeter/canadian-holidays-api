@@ -370,7 +370,7 @@ function errorResponse(message, status = 400) {
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url  = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
@@ -379,6 +379,14 @@ export default {
     }
     if (request.method !== "GET") {
       return errorResponse("Method not allowed — use GET.", 405);
+    }
+
+    // ── RapidAPI proxy secret check ─────────────────────────────────────────
+    if (env.RAPIDAPI_PROXY_SECRET) {
+      const incoming = request.headers.get("X-RapidAPI-Proxy-Secret");
+      if (incoming !== env.RAPIDAPI_PROXY_SECRET) {
+        return errorResponse("Unauthorized.", 401);
+      }
     }
 
     try {
