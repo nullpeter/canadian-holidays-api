@@ -1,0 +1,310 @@
+openapi: 3.1.0
+info:
+  title: Canadian Holidays API
+  description: |
+    Algorithmically calculated statutory and public holidays for all 10 Canadian provinces
+    and 3 territories (2000–3000). Includes per-holiday closure data covering federal offices,
+    Canada Post, banks, schools, and retail.
+
+    **Disclaimer:** Statutory holiday rules change. Verify compliance-critical dates with
+    official provincial sources.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    url: https://github.com/nullpeter/canadian-holidays-api
+
+servers:
+  - url: https://canadian-holidays-api.poodle.workers.dev
+    description: Production (Cloudflare Workers)
+
+tags:
+  - name: Provinces
+    description: List available province and territory codes
+  - name: Holidays
+    description: Retrieve holidays by year and/or province
+  - name: Upcoming
+    description: Find the next upcoming holiday
+
+paths:
+  /provinces:
+    get:
+      operationId: listProvinces
+      summary: List all provinces and territories
+      description: Returns the two-letter code and full name for all 13 Canadian provinces and territories.
+      tags: [Provinces]
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProvincesResponse"
+              example:
+                provinces:
+                  - code: AB
+                    name: Alberta
+                  - code: BC
+                    name: British Columbia
+                  - code: MB
+                    name: Manitoba
+                  - code: NB
+                    name: New Brunswick
+                  - code: NL
+                    name: Newfoundland and Labrador
+                  - code: NS
+                    name: Nova Scotia
+                  - code: NT
+                    name: Northwest Territories
+                  - code: NU
+                    name: Nunavut
+                  - code: ON
+                    name: Ontario
+                  - code: PE
+                    name: Prince Edward Island
+                  - code: QC
+                    name: Quebec
+                  - code: SK
+                    name: Saskatchewan
+                  - code: YT
+                    name: Yukon
+
+  /holidays:
+    get:
+      operationId: getHolidays
+      summary: Get holidays by year (and optionally province)
+      description: |
+        Returns holidays for a given year. If `province` is omitted, returns holidays for all
+        13 provinces and territories keyed by their two-letter code. If `province` is supplied,
+        returns the sorted holiday list for that province only, along with closure data.
+
+        Supported years: 2000–3000.
+      tags: [Holidays]
+      parameters:
+        - name: year
+          in: query
+          description: Four-digit calendar year (2000–3000). Defaults to the current year.
+          required: false
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 3000
+          example: 2025
+        - name: province
+          in: query
+          description: Two-letter province/territory code (case-insensitive). See `/provinces` for valid values.
+          required: false
+          schema:
+            type: string
+            pattern: "^[A-Za-z]{2}$"
+          example: ON
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/HolidaysAllProvincesResponse"
+                  - $ref: "#/components/schemas/HolidaysSingleProvinceResponse"
+        "400":
+          description: Invalid query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                badYear:
+                  summary: Year out of range
+                  value:
+                    error: year must be an integer between 2000 and 3000.
+                badProvince:
+                  summary: Unknown province code
+                  value:
+                    error: Unknown province code "XX". Call /provinces for valid codes.
+
+  /next:
+    get:
+      operationId: getNextHoliday
+      summary: Get the next upcoming holiday for a province
+      description: |
+        Returns the single next upcoming statutory or public holiday for the specified province
+        or territory, relative to today's date (UTC). Looks ahead up to two calendar years.
+      tags: [Upcoming]
+      parameters:
+        - name: province
+          in: query
+          description: Two-letter province/territory code (case-insensitive). Required.
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Za-z]{2}$"
+          example: BC
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NextHolidayResponse"
+              example:
+                province: BC
+                provinceName: British Columbia
+                next:
+                  name: Canada Day
+                  date: "2025-07-01"
+                  closures:
+                    federal_offices: true
+                    canada_post: true
+                    banks: true
+                    schools: true
+                    retail: open
+        "400":
+          description: Missing or invalid province parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingProvince:
+                  summary: Province not supplied
+                  value:
+                    error: province parameter is required for /next (e.g. ?province=ON).
+                badProvince:
+                  summary: Unknown province code
+                  value:
+                    error: Unknown province code "XX". Call /provinces for valid codes.
+
+components:
+  schemas:
+
+    ProvinceCode:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          description: Two-letter province/territory code
+          example: ON
+        name:
+          type: string
+          description: Full English name
+          example: Ontario
+
+    ProvincesResponse:
+      type: object
+      required: [provinces]
+      properties:
+        provinces:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProvinceCode"
+
+    Closures:
+      type: object
+      description: Which institutions are closed on this holiday
+      properties:
+        federal_offices:
+          type: boolean
+          description: Federal government offices are closed
+        canada_post:
+          type: boolean
+          description: Canada Post mail delivery is suspended
+        banks:
+          type: boolean
+          description: Banks are closed (federally regulated)
+        schools:
+          type: boolean
+          description: Schools are closed
+        retail:
+          type: string
+          enum: [closed, open, varies]
+          description: |
+            - `closed`: restricted by legislation / near-universal closure
+            - `open`: retail permitted and generally operating
+            - `varies`: meaningful regional split — verify locally
+
+    Holiday:
+      type: object
+      required: [name, date]
+      properties:
+        name:
+          type: string
+          description: Holiday name
+          example: Canada Day
+        date:
+          type: string
+          format: date
+          description: ISO 8601 date (YYYY-MM-DD). Observed date applied for fixed holidays falling on weekends.
+          example: "2025-07-01"
+        optional:
+          type: boolean
+          description: Present and true when the holiday is not universally statutory (e.g. employer-discretionary)
+        note:
+          type: string
+          description: Supplementary note (rule description, regional caveats, etc.)
+        closures:
+          $ref: "#/components/schemas/Closures"
+
+    HolidaysSingleProvinceResponse:
+      type: object
+      required: [year, province, provinceName, holidays, disclaimer]
+      properties:
+        year:
+          type: integer
+          example: 2025
+        province:
+          type: string
+          example: ON
+        provinceName:
+          type: string
+          example: Ontario
+        holidays:
+          type: array
+          items:
+            $ref: "#/components/schemas/Holiday"
+        disclaimer:
+          type: string
+
+    HolidaysAllProvincesResponse:
+      type: object
+      required: [year, holidays, disclaimer]
+      properties:
+        year:
+          type: integer
+          example: 2025
+        holidays:
+          type: object
+          description: Map of province code → array of holidays
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/Holiday"
+        disclaimer:
+          type: string
+
+    NextHolidayResponse:
+      type: object
+      required: [province, provinceName, next]
+      properties:
+        province:
+          type: string
+          example: BC
+        provinceName:
+          type: string
+          example: British Columbia
+        next:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Holiday"
+          description: The next upcoming holiday, or null if none found within the look-ahead window.
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: year must be an integer between 2000 and 3000.
