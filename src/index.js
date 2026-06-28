@@ -381,6 +381,11 @@ export default {
       return errorResponse("Method not allowed — use GET.", 405);
     }
 
+    // ── Health check (bypasses auth for RapidAPI monitoring) ───────────────
+    if (path === "/health") {
+      return jsonResponse({ status: "ok" });
+    }
+
     // ── RapidAPI proxy secret check ─────────────────────────────────────────
     if (env.RAPIDAPI_PROXY_SECRET) {
       const incoming = request.headers.get("X-RapidAPI-Proxy-Secret");
