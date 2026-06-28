@@ -16,8 +16,8 @@ info:
     url: https://github.com/nullpeter/canadian-holidays-api
 
 servers:
-  - url: https://canadian-holidays-api.poodle.workers.dev
-    description: Production (Cloudflare Workers)
+  - url: https://canadian-holidays-api.p.rapidapi.com
+    description: Production (via RapidAPI)
 
 tags:
   - name: Provinces
@@ -176,7 +176,19 @@ paths:
                   value:
                     error: Unknown province code "XX". Call /provinces for valid codes.
 
+security:
+  - rapidApiKey: []
+
 components:
+  securitySchemes:
+    rapidApiKey:
+      type: apiKey
+      in: header
+      name: X-RapidAPI-Key
+      description: |
+        Your RapidAPI key. Subscribe at
+        https://rapidapi.com/poodleapis/api/canadian-holidays-api
+
   schemas:
 
     ProvinceCode:
