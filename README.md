@@ -18,7 +18,7 @@ Statutory public holidays for all 13 Canadian provinces and territories.
 
 ## Live API
 
-Available on RapidAPI: [Canadian Holidays API](https://rapidapi.com/search/canadian%20holidays)
+Available on RapidAPI: [Canadian Holidays API](https://rapidapi.com/poodleapis/api/canadian-holidays-api)
 
 ## Built with
 
