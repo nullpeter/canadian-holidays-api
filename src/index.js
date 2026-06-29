@@ -387,11 +387,10 @@ export default {
     }
 
     // ── RapidAPI proxy secret check ─────────────────────────────────────────
-    if (env.RAPIDAPI_PROXY_SECRET) {
-      const incoming = request.headers.get("X-RapidAPI-Proxy-Secret");
-      if (incoming !== env.RAPIDAPI_PROXY_SECRET) {
-        return errorResponse("Unauthorized.", 401);
-      }
+    // Fails closed: if the secret is missing from env, all requests are blocked.
+    const proxySecret = env.RAPIDAPI_PROXY_SECRET;
+    if (!proxySecret || request.headers.get("X-RapidAPI-Proxy-Secret") !== proxySecret) {
+      return errorResponse("Unauthorized.", 401);
     }
 
     try {
